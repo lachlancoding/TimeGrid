@@ -1,5 +1,7 @@
 import pendulum as pen
 import datetime
+import types
+
 class TimeGrid (object):
   
   def to_dt(self, x, tz=None):
@@ -118,6 +120,43 @@ class TimeGrid (object):
     return TimeGrid(self._prev_step(self.start) if self._start != self.start else self._start,
       self._next_step(self.end) if self._end != self.end else self._end,
       self.tz, self.step, self.stride, self.align)
+
+  ### Data Functions ###
+  def bucket_stream(self, data_stream, as_ts=True):
+    if not isinstance(data_stream, types.GeneratorType):
+      ds_iter = iter(data_stream)
+    else:
+      ds_iter = data_stream
+    bucket = []
+    peek_dp = None
+    def peek():
+      nonlocal peek_dp
+      if peek_dp is None:
+        peek_dp = next(ds_iter, None)
+      return peek_dp
+
+    def take():
+      nonlocal peek_dp
+      take_dp = peek_dp
+      peek_dp = None
+      return take_dp
+
+    for bucket_span in self:
+      # pull from stream until dp inside bucket
+      while peek() is not None and peek()[0] < bucket_span[0].int_timestamp:
+        take()        
+      # pull from stream until outside bucket
+      while peek() is not None and bucket_span[0].int_timestamp <= peek()[0] < bucket_span[1].int_timestamp:
+        bucket.append(take())
+      yield (bucket_span[0].int_timestamp if as_ts else bucket_span[0], tuple(bucket))
+      bucket = []
+
+  def agg_buckets(self, buckets, f):
+    for stamp, dps in buckets:
+      yield(stamp, f(dps))
+
+  def agg_stream(self, data_stream, f, as_ts=True):
+    return self.agg_buckets(self.bucket_stream(data_stream, as_ts), f)
 
 
 

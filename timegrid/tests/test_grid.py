@@ -55,6 +55,15 @@ class TestGrid(unittest.TestCase):
       self.assertEqual(puffed.start_ts, 10)
       self.assertEqual(puffed.end_ts, 40)
 
+  def test_bucket_data(self):
+    g = TimeGrid(10, 30, "Canada/Eastern", ("seconds", 10))
+    buckets = list(g.bucket_stream([(9, 3), (10, 1), (15, 2), (20, 3), (23, 2), (30, 1)]))
+    self.assertEqual([
+      (10, ((10, 1), (15, 2))), 
+      (20, ((20, 3), (23, 2)))], buckets)
 
-
-
+  def test_agg_buckets(self):
+    g = TimeGrid(10, 30, "Canada/Eastern", ("seconds", 10))
+    agg_buckets = list(g.agg_stream([(9, 3), (10, 1), (15, 2), (20, 3), (23, 2), (30, 1)], lambda dps: sum([x[1] for x in dps])))
+    self.assertEqual([(10, 3), (20, 5)], agg_buckets)
+      

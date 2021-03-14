@@ -26,6 +26,8 @@ class TimeGrid (object):
   def __init__(self, start, end, tz, step, stride=1, align=True):
     self._start = self.to_dt(start, tz=tz)
     self._end = self.to_dt(end, tz=tz)
+    self.tz = tz
+    self.stride = stride
 
     if isinstance(step, int):
       self.step = ("seconds", step)
@@ -50,12 +52,16 @@ class TimeGrid (object):
 
     if self._end != self._end.start_of(self.align):
       self.end = self._align(self._end)
-
     else:
       self.end = self._end
-
-    self.tz = tz
-    self.stride = stride
+    back_one = self.end.subtract(seconds=1)
+    
+    try:
+      cap = self.at(back_one)
+      if cap[1] != self.end:
+        self.end = cap[0]
+    except ValueError:
+      self.end = self.start
 
   @property
   def start_ts(self):
@@ -96,17 +102,32 @@ class TimeGrid (object):
       else:
         break
 
+  def __len__(self):
+    if self.end <= self.start:
+      return 0
+    else:
+      return 1 + self.index(self.end.subtract(seconds=1)) - self.index(self.start)
+
   ''' Return index of bucket containing timestamp '''
-  def index(self, ts):
-    dt = pen.from_timestamp(ts, self.tz)
+  def index(self, target):
+    if isinstance(target, int):
+      dt = pen.from_timestamp(target, self.tz)
+    elif isinstance(target, datetime.datetime):
+      dt = target
+    else:
+      raise TypeError(f"Index target must be int timestamp or datetime, not {type(target)}")
+
     if self.start <= dt < self.end:
       return getattr((dt - self.start), self.step[0])//self.step[1]
     else:
-      raise ValueError(ts)
+      raise ValueError(target)
 
   ''' Return bucket bounds at timestamp '''
-  def at(self, ts):
-    pass
+  def at(self, target):
+    index = self.index(target)
+    at_start = self._jump_from(self.start, index)
+    at_end = self._next_step(at_start)
+    return (at_start, at_end)
 
   def puff_left(self):
     return TimeGrid(self._prev_step(self.start) if self._start != self.start else self._start, 

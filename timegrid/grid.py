@@ -142,6 +142,9 @@ class TimeGrid (object):
       self._next_step(self.end) if self._end != self.end else self._end,
       self.tz, self.step, self.stride, self.align)
 
+  def __repr__(self):
+    return f"{self.start.format('YYYY-MM-DD HH:mm:ss')} -> {self.end.format('YYYY-MM-DD HH:mm:ss')}/{self.step[1]} {self.step[0]}"
+
   ### Data Functions ###
   def bucket_stream(self, data_stream, as_ts=True):
     if not isinstance(data_stream, types.GeneratorType):
